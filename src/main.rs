@@ -11,6 +11,7 @@ extern crate toml;
 extern crate regex;
 extern crate crypto;
 extern crate rustc_serialize;
+extern crate handlebars;
 
 mod decompilation;
 mod static_analysis;
