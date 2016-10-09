@@ -1,5 +1,3 @@
-extern crate colored;
-
 use std::fs;
 use std::process::{Command, exit};
 
