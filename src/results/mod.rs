@@ -36,7 +36,9 @@ pub struct Results {
 
 impl Results {
     pub fn init(config: &Config) -> Option<Results> {
-        let path = format!("{}/{}", config.get_results_folder(), config.get_app_id());
+        let path = format!("{}/{}",
+                           config.get_results_folder(),
+                           config.get_app_package());
         if !fs::metadata(&path).is_ok() || config.is_force() {
             if fs::metadata(&path).is_ok() {
                 if let Err(e) = fs::remove_dir_all(&path) {
@@ -151,7 +153,9 @@ impl Results {
     }
 
     pub fn generate_report(&self, config: &Config) -> Result<()> {
-        let path = format!("{}/{}", config.get_results_folder(), config.get_app_id());
+        let path = format!("{}/{}",
+                           config.get_results_folder(),
+                           config.get_app_package());
         if !file_exists(&path) || config.is_force() {
             if file_exists(&path) {
                 if let Err(e) = fs::remove_dir_all(&path) {
@@ -193,7 +197,7 @@ impl Results {
         }
         let mut f = try!(File::create(format!("{}/{}/results.json",
                                               config.get_results_folder(),
-                                              config.get_app_id())));
+                                              config.get_app_package())));
         if config.is_verbose() {
             println!("The report file has been created. Now it's time to fill it.")
         }
@@ -252,7 +256,7 @@ impl Results {
         }
         let mut f = try!(File::create(format!("{}/{}/index.html",
                                               config.get_results_folder(),
-                                              config.get_app_id())));
+                                              config.get_app_package())));
         if config.is_verbose() {
             println!("The report file has been created. Now it's time to fill it.")
         }
@@ -433,8 +437,10 @@ impl Results {
         try!(f.write_all(b"</html>"));
 
         // Copying JS and CSS files
-        try!(copy_folder(config.get_results_template(),
-                         &format!("{}/{}", config.get_results_folder(), config.get_app_id())));
+        try!(copy_folder(config.get_template_path(),
+                         format!("{}/{}",
+                                 config.get_results_folder(),
+                                 config.get_app_package())));
 
         try!(self.generate_code_html_files(config));
 
@@ -478,7 +484,8 @@ impl Results {
                 .into_bytes()));
             if let Some(file) = vuln.get_file() {
                 try!(f.write_all(&format!("<li><strong>File:</strong> <a \
-                                           href=\"src/{0}.html?start_line={1}&end_line={2}&vulnerability_type={3}#code-line-{1}\">{0}</a></li>",
+                                           href=\"src/{0}.html?start_line={1}&end_line={2}&\
+                                           vulnerability_type={3}#code-line-{1}\">{0}</a></li>",
                                           file.display(),
                                           vuln.get_start_line().unwrap() + 1,
                                           vuln.get_end_line().unwrap() + 1,
@@ -510,10 +517,12 @@ impl Results {
                     if i + start_line >= vuln.get_start_line().unwrap() &&
                        i + start_line <= vuln.get_end_line().unwrap() {
                         let (indent, body) = split_indent(line);
-                        codes.push_str(format!("<code class=\"vulnerable_line {}\">{}<span class=\"line_body\">{}</span></code><br>",
-                                                criticity_str.to_lowercase(),
-                                                indent,
-                                                body).as_str());
+                        codes.push_str(format!("<code class=\"vulnerable_line {}\">{}<span \
+                                                class=\"line_body\">{}</span></code><br>",
+                                               criticity_str.to_lowercase(),
+                                               indent,
+                                               body)
+                            .as_str());
                     } else {
                         codes.push_str(format!("{}<br>", line).as_str());
                     }
@@ -541,7 +550,7 @@ impl Results {
 
         let mut f = try!(fs::File::create(format!("{}/{}/src/index.html",
                                                   config.get_results_folder(),
-                                                  config.get_app_id())));
+                                                  config.get_app_package())));
 
         try!(f.write_all(b"<!DOCTYPE html>"));
         try!(f.write_all(b"<html lang=\"en\">"));
@@ -575,12 +584,12 @@ impl Results {
         }
         let dir_iter = try!(fs::read_dir(&format!("{}/{}/{}",
                                                   config.get_dist_folder(),
-                                                  config.get_app_id(),
+                                                  config.get_app_package(),
                                                   path.as_ref().display())));
 
         try!(fs::create_dir_all(&format!("{}/{}/src/{}",
                                          config.get_results_folder(),
-                                         config.get_app_id(),
+                                         config.get_app_package(),
                                          path.as_ref().display())));
         let mut count = 0;
 
@@ -590,7 +599,7 @@ impl Results {
                 Err(e) => {
                     print_warning(format!("There was an error reading the directory {}/{}/{}: {}",
                                           config.get_dist_folder(),
-                                          config.get_app_id(),
+                                          config.get_app_package(),
                                           path.as_ref().display(),
                                           e),
                                   config.is_verbose());
@@ -602,7 +611,7 @@ impl Results {
                 Some(e) => {
                     if e.to_string_lossy() == "xml" || e.to_string_lossy() == "java" {
                         let prefix =
-                            format!("{}/{}/", config.get_dist_folder(), config.get_app_id());
+                            format!("{}/{}/", config.get_dist_folder(), config.get_app_package());
                         try!(self.generate_code_html_for(f.path().strip_prefix(&prefix).unwrap(),
                                                          config));
                         count += 1;
@@ -611,7 +620,7 @@ impl Results {
                 None => {
                     if f.path().is_dir() {
                         let prefix =
-                            format!("{}/{}/", config.get_dist_folder(), config.get_app_id());
+                            format!("{}/{}/", config.get_dist_folder(), config.get_app_package());
 
                         if f.path().strip_prefix(&prefix).unwrap() != Path::new("original") {
                             let f_count = try!(self.generate_code_html_folder(f.path()
@@ -629,7 +638,7 @@ impl Results {
         if count == 0 {
             try!(fs::remove_dir(&format!("{}/{}/src/{}",
                                          config.get_results_folder(),
-                                         config.get_app_id(),
+                                         config.get_app_package(),
                                          path.as_ref().display())));
         }
 
@@ -642,7 +651,7 @@ impl Results {
                                               -> Result<String> {
         let iter = try!(fs::read_dir(&format!("{}/{}/src/{}",
                                               config.get_results_folder(),
-                                              config.get_app_id(),
+                                              config.get_app_package(),
                                               dir_path.as_ref().display())));
         let mut menu = String::new();
         menu.push_str("<ul>");
@@ -681,7 +690,7 @@ impl Results {
                         };
                         let prefix = format!("{}/{}/src/",
                                              config.get_results_folder(),
-                                             config.get_app_id());
+                                             config.get_app_package());
                         let submenu =
                             match self.generate_html_src_menu(path.strip_prefix(&prefix).unwrap(),
                                                         config) {
@@ -723,11 +732,11 @@ impl Results {
     fn generate_code_html_for<P: AsRef<Path>>(&self, path: P, config: &Config) -> Result<()> {
         let mut f_in = try!(File::open(format!("{}/{}/{}",
                                                config.get_dist_folder(),
-                                               config.get_app_id(),
+                                               config.get_app_package(),
                                                path.as_ref().display())));
         let mut f_out = try!(File::create(format!("{}/{}/src/{}.html",
                                                   config.get_results_folder(),
-                                                  config.get_app_id(),
+                                                  config.get_app_package(),
                                                   path.as_ref().display())));
 
         let mut code = String::new();
@@ -763,11 +772,12 @@ impl Results {
         try!(f_out.write_all(b"<div class=\"code\"><pre><code>"));
         for (i, line) in code.lines().enumerate() {
             let (indent, body) = split_indent(line);
-            try!(f_out.write_all(&format!("<code id=\"code-line-{}\">{}<span class=\"line_body\">{}</span></code><br>",
-                                            i + 1,
-                                            indent,
-                                            body)
-             .into_bytes()));
+            try!(f_out.write_all(&format!("<code id=\"code-line-{}\">{}<span \
+                                           class=\"line_body\">{}</span></code><br>",
+                                          i + 1,
+                                          indent,
+                                          body)
+                .into_bytes()));
         }
         try!(f_out.write_all(b"</code></pre></div></div>"));
         try!(f_out.write_all(&format!("<script src=\"{}js/jquery-3.1.0.slim.min.js\"></script>",

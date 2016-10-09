@@ -10,7 +10,7 @@ use {Error, Config, print_error, print_warning, file_exists};
 use results::Benchmark;
 
 pub fn decompress(config: &Config) {
-    let path = format!("{}/{}", config.get_dist_folder(), config.get_app_id());
+    let path = format!("{}/{}", config.get_dist_folder(), config.get_app_package());
     if !file_exists(&path) || config.is_force() {
         if file_exists(&path) {
             if config.is_verbose() {
@@ -36,11 +36,11 @@ pub fn decompress(config: &Config) {
             .arg("d")
             .arg("-s")
             .arg("-o")
-            .arg(format!("{}/{}", config.get_dist_folder(), config.get_app_id()))
+            .arg(format!("{}/{}", config.get_dist_folder(), config.get_app_package()))
             .arg("-f")
             .arg(format!("{}/{}.apk",
                          config.get_downloads_folder(),
-                         config.get_app_id()))
+                         config.get_app_package()))
             .output();
 
         let output = match output {
@@ -65,7 +65,7 @@ pub fn decompress(config: &Config) {
             println!("{}",
                      format!("The application has been decompressed in {}/{}.",
                              config.get_dist_folder(),
-                             config.get_app_id())
+                             config.get_app_package())
                          .green());
         } else if !config.is_quiet() {
             println!("Application decompressed.");
@@ -80,7 +80,7 @@ pub fn extract_dex(config: &Config, benchmarks: &mut Vec<Benchmark>) {
     if config.is_force() ||
        !file_exists(format!("{}/{}/classes.jar",
                             config.get_dist_folder(),
-                            config.get_app_id())) {
+                            config.get_app_package())) {
         if config.is_verbose() {
             println!("");
             println!("To decompile the app, first we need to extract the {} file.",
@@ -91,7 +91,7 @@ pub fn extract_dex(config: &Config, benchmarks: &mut Vec<Benchmark>) {
 
         let zip = ZipArchive::new(match File::open(format!("{}/{}.apk",
                                                            config.get_downloads_folder(),
-                                                           config.get_app_id())) {
+                                                           config.get_app_package())) {
             Ok(f) => f,
             Err(e) => {
                 print_error(format!("There was an error when decompressing the {} file. More \
@@ -126,7 +126,7 @@ pub fn extract_dex(config: &Config, benchmarks: &mut Vec<Benchmark>) {
 
         let mut out_file = match File::create(format!("{}/{}/classes.dex",
                                                       config.get_dist_folder(),
-                                                      config.get_app_id())) {
+                                                      config.get_app_package())) {
             Ok(f) => f,
             Err(e) => {
                 print_error(format!("There was an error while creating classes.dex file. More \
@@ -184,25 +184,25 @@ pub fn extract_dex(config: &Config, benchmarks: &mut Vec<Benchmark>) {
 
 fn dex_to_jar(config: &Config) {
     let output;
-    if cfg!(target_family="windows") {
+    if cfg!(target_family = "windows") {
         output = Command::new(format!("{}\\d2j-dex2jar.bat", config.get_dex2jar_folder()))
             .arg(format!("{}\\{}\\classes.dex",
                          config.get_dist_folder(),
-                         config.get_app_id()))
+                         config.get_app_package()))
             .arg("-o")
             .arg(format!("{}\\{}\\classes.jar",
                          config.get_dist_folder(),
-                         config.get_app_id()))
+                         config.get_app_package()))
             .output();
     } else {
         output = Command::new(format!("{}/d2j-dex2jar.sh", config.get_dex2jar_folder()))
             .arg(format!("{}/{}/classes.dex",
                          config.get_dist_folder(),
-                         config.get_app_id()))
+                         config.get_app_package()))
             .arg("-o")
             .arg(format!("{}/{}/classes.jar",
                          config.get_dist_folder(),
-                         config.get_app_id()))
+                         config.get_app_package()))
             .output();
     }
 
@@ -234,7 +234,7 @@ fn dex_to_jar(config: &Config) {
                          "file has been generated in".green(),
                          format!("{}/{}/classes.jar.",
                                  config.get_dist_folder(),
-                                 config.get_app_id())
+                                 config.get_app_package())
                              .green())
                      .green());
     } else if !config.is_quiet() {
@@ -245,14 +245,14 @@ fn dex_to_jar(config: &Config) {
 pub fn decompile(config: &Config) {
     let out_path = format!("{}/{}/classes",
                            config.get_dist_folder(),
-                           config.get_app_id());
+                           config.get_app_package());
     if config.is_force() || !file_exists(&out_path) {
         let output = Command::new("java")
             .arg("-jar")
             .arg(config.get_jd_cmd_file())
             .arg(format!("{}/{}/classes.jar",
                          config.get_dist_folder(),
-                         config.get_app_id()))
+                         config.get_app_package()))
             .arg("-od")
             .arg(&out_path)
             .output();

@@ -20,7 +20,7 @@ const MAX_THREADS: i64 = u8::MAX as i64;
 
 #[derive(Debug)]
 pub struct Config {
-    app_id: String,
+    app_package: String,
     verbose: bool,
     quiet: bool,
     force: bool,
@@ -32,7 +32,8 @@ pub struct Config {
     apktool_file: String,
     dex2jar_folder: String,
     jd_cmd_file: String,
-    results_template: String,
+    templates_folder: String,
+    template: String,
     rules_json: String,
     unknown_permission: (Criticity, String),
     permissions: BTreeSet<PermissionConfig>,
@@ -41,14 +42,14 @@ pub struct Config {
 
 impl Config {
     #[cfg(target_family = "unix")]
-    pub fn new(app_id: &str,
+    pub fn new(app_package: &str,
                verbose: bool,
                quiet: bool,
                force: bool,
                bench: bool)
                -> Result<Config> {
         let mut config: Config = Default::default();
-        config.app_id = String::from(app_id);
+        config.app_package = String::from(app_package);
         config.verbose = verbose;
         config.quiet = quiet;
         config.force = force;
@@ -67,14 +68,14 @@ impl Config {
     }
 
     #[cfg(target_family = "windows")]
-    pub fn new(app_id: &str,
-               verbose: bool,
-               quiet: bool,
-               force: bool,
-               bench: bool)
-               -> Result<Config> {
+    pub fn new<S: AsRef<str>>(app_package: S,
+                              verbose: bool,
+                              quiet: bool,
+                              force: bool,
+                              bench: bool)
+                              -> Result<Config> {
         let mut config: Config = Default::default();
-        config.app_id = String::from(app_id);
+        config.app_package = String::from(app_package.as_ref());
         config.verbose = verbose;
         config.quiet = quiet;
         config.force = force;
@@ -90,9 +91,12 @@ impl Config {
 
     pub fn check(&self) -> bool {
         file_exists(&self.downloads_folder) &&
-        file_exists(format!("{}/{}.apk", self.downloads_folder, self.app_id)) &&
+        ((cfg!(target_family = "unix") &&
+          file_exists(format!("{}/{}.apk", self.downloads_folder, self.app_package))) ||
+         (((cfg!(target_family = "windows") &&
+            file_exists(format!("{}\\{}.apk", self.downloads_folder, self.app_package)))))) &&
         file_exists(&self.apktool_file) && file_exists(&self.dex2jar_folder) &&
-        file_exists(&self.jd_cmd_file) && file_exists(&self.results_template) &&
+        file_exists(&self.jd_cmd_file) && file_exists(self.get_template_path()) &&
         file_exists(&self.rules_json)
     }
 
@@ -102,9 +106,22 @@ impl Config {
             errors.push(format!("the downloads folder `{}` does not exist",
                                 self.downloads_folder));
         }
-        if !file_exists(format!("{}/{}.apk", self.downloads_folder, self.app_id)) {
-            errors.push(format!("the APK file `{}` does not exist",
-                                format!("{}/{}.apk", self.downloads_folder, self.app_id)));
+        if !file_exists(format!("{}{}{}.apk",
+                                self.downloads_folder,
+                                if cfg!(target_family = "unix") {
+                                    '/'
+                                } else {
+                                    '\\'
+                                },
+                                self.app_package)) {
+            errors.push(format!("the APK file `{}{}{}.apk` does not exist",
+                                self.downloads_folder,
+                                if cfg!(target_family = "unix") {
+                                    '/'
+                                } else {
+                                    '\\'
+                                },
+                                self.app_package));
         }
         if !file_exists(&self.apktool_file) {
             errors.push(format!("the APKTool JAR file `{}` does not exist",
@@ -117,9 +134,14 @@ impl Config {
         if !file_exists(&self.jd_cmd_file) {
             errors.push(format!("the jd-cmd file `{}` does not exist", self.jd_cmd_file));
         }
-        if !file_exists(&self.results_template) {
-            errors.push(format!("the results template `{}` does not exist",
-                                self.results_template));
+        if !file_exists(&self.templates_folder) {
+            errors.push(format!("the templates folder `{}` does not exist",
+                                self.templates_folder));
+        }
+        if !file_exists(self.get_template_path()) {
+            errors.push(format!("the template `{}` does not exist in `{}`",
+                                self.template,
+                                self.templates_folder));
         }
         if !file_exists(&self.rules_json) {
             errors.push(format!("the `{}` rule file does not exist", self.rules_json));
@@ -131,12 +153,12 @@ impl Config {
         self.loaded_files.iter()
     }
 
-    pub fn get_app_id(&self) -> &str {
-        self.app_id.as_str()
+    pub fn get_app_package(&self) -> &str {
+        &self.app_package
     }
 
-    pub fn set_app_id(&mut self, app_id: &str) {
-        self.app_id = String::from(app_id);
+    pub fn set_app_package<S: AsRef<str>>(&mut self, app_package: S) {
+        self.app_package = String::from(app_package.as_ref());
     }
 
     pub fn is_verbose(&self) -> bool {
@@ -176,31 +198,45 @@ impl Config {
     }
 
     pub fn get_downloads_folder(&self) -> &str {
-        self.downloads_folder.as_str()
+        &self.downloads_folder
     }
 
     pub fn get_dist_folder(&self) -> &str {
-        self.dist_folder.as_str()
+        &self.dist_folder
     }
 
     pub fn get_results_folder(&self) -> &str {
-        self.results_folder.as_str()
+        &self.results_folder
     }
 
     pub fn get_apktool_file(&self) -> &str {
-        self.apktool_file.as_str()
+        &self.apktool_file
     }
 
     pub fn get_dex2jar_folder(&self) -> &str {
-        self.dex2jar_folder.as_str()
+        &self.dex2jar_folder
     }
 
     pub fn get_jd_cmd_file(&self) -> &str {
-        self.jd_cmd_file.as_str()
+        &self.jd_cmd_file
     }
 
-    pub fn get_results_template(&self) -> &str {
-        self.results_template.as_str()
+    #[cfg(target_family = "unix")]
+    pub fn get_template_path(&self) -> String {
+        format!("{}/{}", self.templates_folder, self.template)
+    }
+
+    #[cfg(target_family = "windows")]
+    pub fn get_template_path(&self) -> String {
+        format!("{}\\{}", self.templates_folder, self.template)
+    }
+
+    pub fn get_templates_folder(&self) -> &str {
+        &self.templates_folder
+    }
+
+    pub fn get_template_name(&self) -> &str {
+        &self.template
     }
 
     pub fn get_rules_json(&self) -> &str {
@@ -329,11 +365,21 @@ impl Config {
                         }
                     }
                 }
-                "results_template" => {
+                "templates_folder" => {
                     match value {
-                        Value::String(s) => config.results_template = s,
+                        Value::String(s) => config.templates_folder = s,
                         _ => {
-                            print_warning("The 'results_template' option in config.toml \
+                            print_warning("The 'templates_folder' option in config.toml \
+                                           should be an string.\nUsing default.",
+                                          verbose)
+                        }
+                    }
+                }
+                "template" => {
+                    match value {
+                        Value::String(s) => config.template = s,
+                        _ => {
+                            print_warning("The 'template' option in config.toml \
                                            should be an string.\nUsing default.",
                                           verbose)
                         }
@@ -491,7 +537,7 @@ impl Default for Config {
     fn default() -> Config {
         if file_exists("/usr/share/super") {
             Config {
-                app_id: String::new(),
+                app_package: String::new(),
                 verbose: false,
                 quiet: false,
                 force: false,
@@ -503,7 +549,8 @@ impl Default for Config {
                 apktool_file: String::from("/usr/share/super/vendor/apktool_2.2.0.jar"),
                 dex2jar_folder: String::from("/usr/share/super/vendor/dex2jar-2.0"),
                 jd_cmd_file: String::from("/usr/share/super/vendor/jd-cmd.jar"),
-                results_template: String::from("/usr/share/super/vendor/results_template"),
+                templates_folder: String::from("/usr/share/super/templates"),
+                template: String::from("super"),
                 rules_json: if Path::new("/etc/super").exists() {
                     String::from("/etc/super/rules.json")
                 } else {
@@ -518,7 +565,7 @@ impl Default for Config {
             }
         } else {
             Config {
-                app_id: String::new(),
+                app_package: String::new(),
                 verbose: false,
                 quiet: false,
                 force: false,
@@ -530,7 +577,8 @@ impl Default for Config {
                 apktool_file: String::from("vendor/apktool_2.2.0.jar"),
                 dex2jar_folder: String::from("vendor/dex2jar-2.0"),
                 jd_cmd_file: String::from("vendor/jd-cmd.jar"),
-                results_template: String::from("vendor/results_template"),
+                templates_folder: String::from("templates"),
+                template: String::from("super"),
                 rules_json: if file_exists("/etc/super/rules.json") {
                     String::from("/etc/super/rules.json")
                 } else {
@@ -550,7 +598,7 @@ impl Default for Config {
     fn default() -> Config {
         if file_exists("/usr/local/super") {
             Config {
-                app_id: String::new(),
+                app_package: String::new(),
                 verbose: false,
                 quiet: false,
                 force: false,
@@ -562,7 +610,8 @@ impl Default for Config {
                 apktool_file: String::from("/usr/local/super/vendor/apktool_2.2.0.jar"),
                 dex2jar_folder: String::from("/usr/local/super/vendor/dex2jar-2.0"),
                 jd_cmd_file: String::from("/usr/local/super/vendor/jd-cmd.jar"),
-                results_template: String::from("/usr/local/super/vendor/results_template"),
+                templates_folder: String::from("/usr/local/super/templates"),
+                template: String::from("super"),
                 rules_json: if Path::new("/etc/super").exists() {
                     String::from("/etc/super/rules.json")
                 } else {
@@ -577,7 +626,7 @@ impl Default for Config {
             }
         } else {
             Config {
-                app_id: String::new(),
+                app_package: String::new(),
                 verbose: false,
                 quiet: false,
                 force: false,
@@ -589,7 +638,8 @@ impl Default for Config {
                 apktool_file: String::from("vendor/apktool_2.2.0.jar"),
                 dex2jar_folder: String::from("vendor/dex2jar-2.0"),
                 jd_cmd_file: String::from("vendor/jd-cmd.jar"),
-                results_template: String::from("vendor/results_template"),
+                templates_folder: String::from("templates"),
+                template: String::from("super"),
                 rules_json: if file_exists("/etc/super/rules.json") {
                     String::from("/etc/super/rules.json")
                 } else {
@@ -608,7 +658,7 @@ impl Default for Config {
     #[cfg(target_family = "windows")]
     fn default() -> Config {
         Config {
-            app_id: String::new(),
+            app_package: String::new(),
             verbose: false,
             quiet: false,
             force: false,
@@ -620,7 +670,8 @@ impl Default for Config {
             apktool_file: String::from("vendor\\apktool_2.2.0.jar"),
             dex2jar_folder: String::from("vendor\\dex2jar-2.0"),
             jd_cmd_file: String::from("vendor\\jd-cmd.jar"),
-            results_template: String::from("vendor\\results_template"),
+            templates_folder: String::from("templates"),
+            template: String::from("super"),
             rules_json: String::from("rules.json"),
             unknown_permission: (Criticity::Low,
                                  String::from("Even if the application can create its own \
@@ -703,7 +754,7 @@ mod tests {
     fn it_config() {
         let mut config: Config = Default::default();
 
-        assert_eq!(config.get_app_id(), "");
+        assert_eq!(config.get_app_package(), "");
         assert!(!config.is_verbose());
         assert!(!config.is_quiet());
         assert!(!config.is_force());
@@ -719,8 +770,10 @@ mod tests {
                        "/usr/share/super/vendor/dex2jar-2.0");
             assert_eq!(config.get_jd_cmd_file(),
                        "/usr/share/super/vendor/jd-cmd.jar");
-            assert_eq!(config.get_results_template(),
-                       "/usr/share/super/vendor/results_template");
+            assert_eq!(config.get_templates_folder(), "/usr/share/super/templates");
+            assert_eq!(config.get_template_name(), "super");
+            assert_eq!(config.get_template_path(),
+                       "/usr/share/super/templates/super");
         } else if cfg!(target_os = "macos") && Path::new("/usr/local/super").exists() {
             assert_eq!(config.get_apktool_file(),
                        "/usr/local/super/vendor/apktool_2.2.0.jar");
@@ -728,18 +781,24 @@ mod tests {
                        "/usr/local/super/vendor/dex2jar-2.0");
             assert_eq!(config.get_jd_cmd_file(),
                        "/usr/local/super/vendor/jd-cmd.jar");
-            assert_eq!(config.get_results_template(),
-                       "/usr/local/super/vendor/results_template");
+            assert_eq!(config.get_templates_folder(), "/usr/local/super/templates");
+            assert_eq!(config.get_template_name(), "super");
+            assert_eq!(config.get_template_path(),
+                       "/usr/local/super/templates/super");
         } else if cfg!(target_family = "windows") {
             assert_eq!(config.get_apktool_file(), "vendor\\apktool_2.2.0.jar");
             assert_eq!(config.get_dex2jar_folder(), "vendor\\dex2jar-2.0");
             assert_eq!(config.get_jd_cmd_file(), "vendor\\jd-cmd.jar");
-            assert_eq!(config.get_results_template(), "vendor\\results_template");
+            assert_eq!(config.get_templates_folder(), "templates");
+            assert_eq!(config.get_template_name(), "super");
+            assert_eq!(config.get_template_path(), "templates\\super");
         } else {
             assert_eq!(config.get_apktool_file(), "vendor/apktool_2.2.0.jar");
             assert_eq!(config.get_dex2jar_folder(), "vendor/dex2jar-2.0");
             assert_eq!(config.get_jd_cmd_file(), "vendor/jd-cmd.jar");
-            assert_eq!(config.get_results_template(), "vendor/results_template");
+            assert_eq!(config.get_templates_folder(), "templates");
+            assert_eq!(config.get_template_name(), "super");
+            assert_eq!(config.get_template_path(), "templates/super");
         }
         if cfg!(target_family = "unix") && file_exists("/etc/super/rules.json") {
             assert_eq!(config.get_rules_json(), "/etc/super/rules.json");
@@ -762,13 +821,13 @@ mod tests {
             fs::create_dir(config.get_results_folder()).unwrap();
         }
 
-        config.set_app_id("test_app");
+        config.set_app_package("test_app");
         config.set_verbose(true);
         config.set_quiet(true);
         config.set_force(true);
         config.set_bench(true);
 
-        assert_eq!(config.get_app_id(), "test_app");
+        assert_eq!(config.get_app_package(), "test_app");
         assert!(config.is_verbose());
         assert!(config.is_quiet());
         assert!(config.is_force());
@@ -776,17 +835,17 @@ mod tests {
 
         if file_exists(format!("{}/{}.apk",
                                config.get_downloads_folder(),
-                               config.get_app_id())) {
+                               config.get_app_package())) {
             fs::remove_file(format!("{}/{}.apk",
                                     config.get_downloads_folder(),
-                                    config.get_app_id()))
+                                    config.get_app_package()))
                 .unwrap();
         }
         assert!(!config.check());
 
         fs::File::create(format!("{}/{}.apk",
                                  config.get_downloads_folder(),
-                                 config.get_app_id()))
+                                 config.get_app_package()))
             .unwrap();
         assert!(config.check());
 
@@ -809,7 +868,7 @@ mod tests {
 
         fs::remove_file(format!("{}/{}.apk",
                                 config.get_downloads_folder(),
-                                config.get_app_id()))
+                                config.get_app_package()))
             .unwrap();
     }
 
@@ -829,8 +888,10 @@ mod tests {
                    "/usr/share/super/vendor/dex2jar-2.0");
         assert_eq!(config.get_jd_cmd_file(),
                    "/usr/share/super/vendor/jd-cmd.jar");
-        assert_eq!(config.get_results_template(),
-                   "/usr/share/super/vendor/results_template");
+        assert_eq!(config.get_templates_folder(), "/usr/share/super/templates");
+        assert_eq!(config.get_template_name(), "super");
+        assert_eq!(config.get_template_path(),
+                   "/usr/share/super/templates/super");
         assert_eq!(config.get_rules_json(), "/etc/super/rules.json");
         assert_eq!(config.get_unknown_permission_criticity(), Criticity::Low);
         assert_eq!(config.get_unknown_permission_description(),

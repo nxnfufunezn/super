@@ -152,7 +152,7 @@ impl FingerPrint {
     pub fn new(config: &Config) -> Result<FingerPrint> {
         let path = format!("{}/{}.apk",
                            config.get_downloads_folder(),
-                           config.get_app_id());
+                           config.get_app_package());
 
         let mut f = try!(File::open(path));
         let mut buffer = Vec::with_capacity(f.metadata().unwrap().len() as usize);

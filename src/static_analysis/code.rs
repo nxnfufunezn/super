@@ -48,7 +48,7 @@ pub fn code_analysis(manifest: Option<Manifest>, config: &Config, results: &mut 
     let found_vulns: Arc<Mutex<Vec<Vulnerability>>> = Arc::new(Mutex::new(Vec::new()));
     let files = Arc::new(Mutex::new(files));
     let verbose = config.is_verbose();
-    let dist_folder = Arc::new(format!("{}/{}", config.get_dist_folder(), config.get_app_id()));
+    let dist_folder = Arc::new(format!("{}/{}", config.get_dist_folder(), config.get_app_package()));
 
     if config.is_verbose() {
         println!("Starting analysis of the code with {} threads. {} files to go!",
@@ -278,7 +278,7 @@ fn add_files_to_vec<P: AsRef<Path>>(path: P,
     }
     let real_path = format!("{}/{}/{}",
                             config.get_dist_folder(),
-                            config.get_app_id(),
+                            config.get_app_package(),
                             path.as_ref().display());
     for f in try!(fs::read_dir(&real_path)) {
         let f = match f {
@@ -298,7 +298,7 @@ fn add_files_to_vec<P: AsRef<Path>>(path: P,
             try!(add_files_to_vec(f.path()
                                       .strip_prefix(&format!("{}/{}",
                                                              config.get_dist_folder(),
-                                                             config.get_app_id()))
+                                                             config.get_app_package()))
                                       .unwrap(),
                                   vec,
                                   config));

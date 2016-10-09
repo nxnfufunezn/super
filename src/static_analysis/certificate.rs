@@ -36,7 +36,7 @@ pub fn certificate_analysis(config: &Config, results: &mut Results) -> Result<()
 
     let path = format!("{}/{}/original/META-INF/",
                        config.get_dist_folder(),
-                       config.get_app_id());
+                       config.get_app_package());
     let dir_iter = try!(fs::read_dir(&path));
 
     for f in dir_iter {
@@ -47,7 +47,7 @@ pub fn certificate_analysis(config: &Config, results: &mut Results) -> Result<()
                                        {}/{}/original/META-INF/ dir searching certificates. \
                                        Certificate analysis will be skipped. More info: {}",
                                       config.get_dist_folder(),
-                                      config.get_app_id(),
+                                      config.get_app_package(),
                                       e),
                               config.is_verbose());
                 break;
