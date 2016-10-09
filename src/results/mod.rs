@@ -824,7 +824,7 @@ impl Results {
     }
 
     fn html_escape(code: &str) -> String {
-        let mut res = String::new();
+        let mut res = String::with_capacity(code.len());
         for c in code.chars() {
             match c {
                 '<' => res.push_str("&lt;"),
