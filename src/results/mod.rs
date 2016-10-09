@@ -26,6 +26,7 @@ pub struct Results {
     app_min_sdk: i32,
     app_target_sdk: Option<i32>,
     app_fingerprint: FingerPrint,
+    certificate: String,
     warnings: BTreeSet<Vulnerability>,
     low: BTreeSet<Vulnerability>,
     medium: BTreeSet<Vulnerability>,
@@ -76,6 +77,7 @@ impl Results {
                 app_min_sdk: 0,
                 app_target_sdk: None,
                 app_fingerprint: fingerprint,
+                certificate: String::new(),
                 warnings: BTreeSet::new(),
                 low: BTreeSet::new(),
                 medium: BTreeSet::new(),
@@ -94,6 +96,10 @@ impl Results {
             }
             None
         }
+    }
+
+    pub fn set_certificate<S: AsRef<str>>(&mut self, certificate: S) {
+        self.certificate = String::from(certificate.as_ref());
     }
 
     pub fn set_app_package(&mut self, package: &str) {

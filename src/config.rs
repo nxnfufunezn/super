@@ -197,6 +197,10 @@ impl Config {
         self.threads
     }
 
+    pub fn set_threads(&mut self, threads: u8) {
+        self.threads = threads;
+    }
+
     pub fn get_downloads_folder(&self) -> &str {
         &self.downloads_folder
     }
@@ -240,7 +244,7 @@ impl Config {
     }
 
     pub fn get_rules_json(&self) -> &str {
-        self.rules_json.as_str()
+        &self.rules_json
     }
 
     pub fn get_unknown_permission_criticity(&self) -> Criticity {
