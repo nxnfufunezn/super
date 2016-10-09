@@ -8,7 +8,7 @@ use self::manifest::*;
 use self::certificate::*;
 use self::code::*;
 use results::{Results, Benchmark};
-use Config;
+use {Config, print_error};
 
 pub fn static_analysis(config: &Config, results: &mut Results) {
     if config.is_verbose() {
@@ -24,7 +24,12 @@ pub fn static_analysis(config: &Config, results: &mut Results) {
     }
 
     let certificate_start = Instant::now();
-    let certificate = certificate_analysis(config, results);
+    if let Err(e) = certificate_analysis(config, results) {
+        print_error(format!("An error occurred when analysing the certificate of the \
+                             application: {:?}",
+                            e),
+                    config.is_verbose());
+    }
     if config.is_bench() {
         results.add_benchmark(Benchmark::new("Certificate analysis", certificate_start.elapsed()));
     }
