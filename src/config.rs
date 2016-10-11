@@ -25,6 +25,7 @@ pub struct Config {
     quiet: bool,
     force: bool,
     bench: bool,
+    open: bool,
     threads: u8,
     downloads_folder: String,
     dist_folder: String,
@@ -46,7 +47,8 @@ impl Config {
                verbose: bool,
                quiet: bool,
                force: bool,
-               bench: bool)
+               bench: bool,
+               open: bool)
                -> Result<Config> {
         let mut config: Config = Default::default();
         config.app_package = String::from(app_package);
@@ -54,6 +56,7 @@ impl Config {
         config.quiet = quiet;
         config.force = force;
         config.bench = bench;
+        config.open = open;
 
         if file_exists("/etc/config.toml") {
             try!(Config::load_from_file(&mut config, "/etc/config.toml", verbose));
@@ -72,7 +75,8 @@ impl Config {
                               verbose: bool,
                               quiet: bool,
                               force: bool,
-                              bench: bool)
+                              bench: bool,
+                              open: bool)
                               -> Result<Config> {
         let mut config: Config = Default::default();
         config.app_package = String::from(app_package.as_ref());
@@ -80,6 +84,7 @@ impl Config {
         config.quiet = quiet;
         config.force = force;
         config.bench = bench;
+        config.open = open;
 
         if file_exists("config.toml") {
             try!(Config::load_from_file(&mut config, "config.toml", verbose));
@@ -191,6 +196,14 @@ impl Config {
 
     pub fn set_bench(&mut self, bench: bool) {
         self.bench = bench;
+    }
+
+    pub fn is_open(&self) -> bool {
+        self.open
+    }
+
+    pub fn set_open(&mut self, open: bool) {
+        self.open = open;
     }
 
     pub fn get_threads(&self) -> u8 {
@@ -546,6 +559,7 @@ impl Default for Config {
                 quiet: false,
                 force: false,
                 bench: false,
+                open: false,
                 threads: 2,
                 downloads_folder: String::from("downloads"),
                 dist_folder: String::from("dist"),
@@ -574,6 +588,7 @@ impl Default for Config {
                 quiet: false,
                 force: false,
                 bench: false,
+                open: false,
                 threads: 2,
                 downloads_folder: String::from("downloads"),
                 dist_folder: String::from("dist"),
@@ -607,6 +622,7 @@ impl Default for Config {
                 quiet: false,
                 force: false,
                 bench: false,
+                open: false,
                 threads: 2,
                 downloads_folder: String::from("downloads"),
                 dist_folder: String::from("dist"),
@@ -635,6 +651,7 @@ impl Default for Config {
                 quiet: false,
                 force: false,
                 bench: false,
+                open: false,
                 threads: 2,
                 downloads_folder: String::from("downloads"),
                 dist_folder: String::from("dist"),
@@ -667,6 +684,7 @@ impl Default for Config {
             quiet: false,
             force: false,
             bench: false,
+            open: false,
             threads: 2,
             downloads_folder: String::from("downloads"),
             dist_folder: String::from("dist"),
@@ -763,6 +781,7 @@ mod tests {
         assert!(!config.is_quiet());
         assert!(!config.is_force());
         assert!(!config.is_bench());
+        assert!(!config.is_open());
         assert_eq!(config.get_threads(), 2);
         assert_eq!(config.get_downloads_folder(), "downloads");
         assert_eq!(config.get_dist_folder(), "dist");
@@ -830,12 +849,14 @@ mod tests {
         config.set_quiet(true);
         config.set_force(true);
         config.set_bench(true);
+        config.set_open(true);
 
         assert_eq!(config.get_app_package(), "test_app");
         assert!(config.is_verbose());
         assert!(config.is_quiet());
         assert!(config.is_force());
         assert!(config.is_bench());
+        assert!(config.is_open());
 
         if file_exists(format!("{}/{}.apk",
                                config.get_downloads_folder(),
@@ -856,7 +877,7 @@ mod tests {
         while !file_exists("config.toml.sample") {
             thread::sleep(Duration::from_millis(50));
         }
-        let config = Config::new("test_app", false, false, false, false).unwrap();
+        let config = Config::new("test_app", false, false, false, false, false).unwrap();
         let mut error_string = String::from("Configuration errors were found:\n");
         for error in config.get_errors() {
             error_string.push_str(&error);
@@ -881,7 +902,7 @@ mod tests {
         fs::rename("config.toml", "config.toml.bk").unwrap();
         fs::rename("config.toml.sample", "config.toml").unwrap();
 
-        let config = Config::new("test_app", false, false, false, false).unwrap();
+        let config = Config::new("test_app", false, false, false, false, false).unwrap();
         assert_eq!(config.get_threads(), 2);
         assert_eq!(config.get_downloads_folder(), "downloads");
         assert_eq!(config.get_dist_folder(), "dist");

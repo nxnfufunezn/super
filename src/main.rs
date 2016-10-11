@@ -20,6 +20,7 @@ extern crate regex;
 extern crate crypto;
 extern crate rustc_serialize;
 extern crate handlebars;
+extern crate open;
 
 mod decompilation;
 mod static_analysis;
@@ -58,7 +59,8 @@ fn main() {
     let quiet = matches.is_present("quiet");
     let force = matches.is_present("force");
     let bench = matches.is_present("bench");
-    let config = match Config::new(app_package, verbose, quiet, force, bench) {
+    let open = matches.is_present("open");
+    let config = match Config::new(app_package, verbose, quiet, force, bench, open) {
         Ok(c) => c,
         Err(e) => {
             print_warning(format!("There was an error when reading the config.toml file: {}",
@@ -70,6 +72,7 @@ fn main() {
             c.set_quiet(quiet);
             c.set_force(force);
             c.set_bench(bench);
+            c.set_open(open);
             c
         }
     };
@@ -190,6 +193,19 @@ fn main() {
             println!("{}", "Benchmarks:".bold());
             for bench in results.get_benchmarks() {
                 println!("{}", bench);
+            }
+        }
+
+        if config.is_open() {
+            let report_path = format!("{}/{}/index.html",
+                                      config.get_results_folder(),
+                                      config.get_app_package());
+            match open::that(report_path) {
+                Ok(_) => {}
+                Err(e) => {
+                    print_error(format!("Report could not be opened automatically: {}", e),
+                                config.is_verbose());
+                }
             }
         }
     } else if !config.is_quiet() {
@@ -356,6 +372,9 @@ fn get_help_menu() -> ArgMatches<'static> {
             .long("quiet")
             .conflicts_with("verbose")
             .help("If you'd like a zen auditor that won't talk unless it's 100% necessary."))
+        .arg(Arg::with_name("open")
+            .long("open")
+            .help("Open the report in a browser once it is complete."))
         .get_matches()
 }
 
